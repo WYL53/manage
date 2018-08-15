@@ -8,6 +8,7 @@
   <script src="./js/vue.js"></script>
   <script src="./js/wangEditor/wangEditor.min.js"></script>
   <script src="./js/axios/axios.min.js"></script>
+  <script src="./js/utils/base64.js"></script>
 </head> 
 <body>
     <div id='app'>
@@ -17,11 +18,15 @@
         <input v-model="title"/>
       </div>
       <div>
-
         <h3 >内容：</h3>
         <div style="display: inline-block" id='edit'></div>
       </div>
-        <button style="float: right;" @click="sumbitBthclick">提交</button>
+      <div>
+        <h3>添加图片：</h3>
+        <input type="file" ref="addFileBtn" @change="addPicture"/>
+        <span>{{fileUploadedUrl}}</span>
+      </div>
+      <button style="float: right;" @click="sumbitBthclick">提交</button>
     </div>
 
     <script>
@@ -36,15 +41,16 @@
       var api = axios.create({
         baseURL: 'https://api.bmob.cn/1/classes',
         timeout: 10000,
-        headers: {"X-Bmob-Application-Id": "Your Application ID",
-                  "X-Bmob-REST-API-Key": "Your REST API Key",
+        headers: {"X-Bmob-Application-Id": "ebe46abe2b64e491063c6997de7a2808",
+                  "X-Bmob-REST-API-Key": "f2fe4d2a9e5c15896d1e87ac6033e7b7",
                   "Content-Type": "application/json"}
       })
       var vm = new Vue({
         el:'#app',
         data:{
           title:'',
-          content:''
+          content:'',
+          fileUploadedUrl:'',
         },
         mounted(){
           editor = new E('#edit')
@@ -53,17 +59,73 @@
         methods:{
           sumbitBthclick(){
             this.content = editor.txt.html()
-            // console.log(this.title)
-            // console.log(this.content)
-   
-          api.post('/joke',
-            {title: this.title,
-              content: this.content}
+            api.post('/joke',
+            {
+              title: this.title,
+              content: this.content
+            }
             ).then(function (response) {
                 console.log(response);
               }).catch(function (error) {
                 console.log(error);
               })
+          },
+          addPicture(){
+            // {
+            //  lastModified:1533199963101
+            //  lastModifiedDate:Thu Aug 02 2018 16:52:43 GMT+0800 (中国标准时间) {}
+            //  name:"2.jpg"
+            //  size:6424
+            //  type:"image/jpeg"
+            //  webkitRelativePath:""
+            //  __proto__:File{
+            //     lastModified :(...)
+            //     lastModifiedDate :(...)
+            //     name :(...)
+            //     size :(...)
+            //     type :(...)
+            //  }
+            //}
+            let file = this.$refs.addFileBtn.files[0]
+            if(typeof file === 'undefined') return
+            
+            let fileName = file.name
+            let ct = 'image/jpeg'
+
+            if(fileName.endsWith('.jpg') || fileName.endsWith('.jpe')){
+              ct = 'image/jpeg'
+            }else if(fileName.endsWith('.png')){
+              	ct = 'image/png'
+            }else if(fileName.endsWith('.tif')||fileName.endsWith('.tld')){
+              ct = 'image/tiff'
+            }
+            let uploadpPicApi = axios.create({
+              baseURL: `https://api.bmob.cn/2/files`,
+              timeout: 10000,
+              headers: {
+                "X-Bmob-Application-Id": "ebe46abe2b64e491063c6997de7a2808",
+                "X-Bmob-REST-API-Key": "f2fe4d2a9e5c15896d1e87ac6033e7b7",
+                "Content-Type": ct,
+              }
+            })
+            // let data = new FormData()
+            // data.append('filename',file)
+            let hz = fileName.substring(fileName.lastIndexOf('.'))
+            if(fileName.length < 10){
+              fileName = ''+ new Date().getTime() + fileName
+            }
+            let fileNameBase64 = Base64.encode(fileName)+fileName.substr(fileName.lastIndexOf('.'))
+            let fileNameUrl = `/${fileNameBase64.substr(0,fileNameBase64.length-2)}${hz}` //去掉‘==’
+            // return
+            uploadpPicApi.post(fileNameUrl,{fileName:file})
+            .then(function (response) {
+                // console.log(response);
+                if(response.statusText === 'OK'){
+                  this.fileUploadedUrl = response.data.url
+                }
+            }).catch(function (error) {
+                console.log(error);
+            })
           }
         }
       })
